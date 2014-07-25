@@ -24,6 +24,7 @@ if(login_check($mysqli) == true) {
 	<script src="fancywebsocket.js"></script>
 	<script>
 		var Server;
+		var roomNamesList = [];
 
 		function log( text ) 
 		{
@@ -34,8 +35,8 @@ if(login_check($mysqli) == true) {
 			$log[0].scrollTop = $log[0].scrollHeight - $log[0].clientHeight;
 		}
 
+		// Purpose: Display the current room's long description
 		// Input: room id number
-		// Output: room long description
 		function roomdesc( text ) 
 		{
 			$.get( 
@@ -48,9 +49,33 @@ if(login_check($mysqli) == true) {
 			     );
 		}
 
+		// Purpose: Set the list of characters in the room.
+		// Input: Array of character names.
+		function setRoomList( charnames ) 
+		{
+			$roomlist = $('#roomList');
+			$roomlist.html("");
+			for (var i = 0; i < charnames.length; ++i) 
+			{
+				$roomlist.append(charnames[i] + ' ');
+			}
+		}
+
 
 		function send( text ) {
 			Server.send( 'message', text );
+		}
+
+		// Purpose: Remove item from array
+		// Input: The array, the item to be removed.
+
+		function removeFromArray(arr, what) {
+			var found = arr.indexOf(what);
+
+			while (found !== -1) {
+				arr.splice(found, 1);
+				found = arr.indexOf(what);
+			}
 		}
 
 		$(document).ready(function() {
@@ -69,7 +94,7 @@ if(login_check($mysqli) == true) {
 			// Initial first-connect stuff here.
 			Server.bind('open', function() {
 				send("|username <?php echo $username;?>");
-				send("|changeRoom 1");
+			//	send("|changeRoom 1");
 				log( "Connected." );
 			});
 
@@ -81,9 +106,34 @@ if(login_check($mysqli) == true) {
 				log( "Disconnected." );
 			});
 
-			//Log any messages sent from server
+			// Resolve any system messages from the server. Log any non-system messages sent from server.
 			Server.bind('message', function( payload ) {
-				log( payload );
+				if( payload.charAt(0) != '|')
+				{
+					log( payload );
+				}
+				else
+				{	// ugly, rewrite this.
+					log (payload);
+					var commandString = payload.split(' ');
+					var command = commandString[0];
+					var argument = payload.substr(payload.indexOf(' ') +1 );
+
+					switch(command)
+					{
+						case '|roomListAdd':
+						if ($.inArray(argument, roomNamesList) <0 )
+							{
+							roomNamesList.push(argument);
+							setRoomList(roomNamesList);
+							}
+						break;
+						case '|roomListRem':
+							removeFromArray(roomNamesList, argument);
+							setRoomList(roomNamesList);
+						break;
+					}
+				}
 			});
 
 			Server.connect();
@@ -93,7 +143,7 @@ if(login_check($mysqli) == true) {
 
 <body>
 	<div id='body'>
-		<span id="room">The OOC Room</span><br/>
+		<span id="room">The OOC Room</span> Characters here: <span id="roomList"></span><br/>
 		<span id="roomdesc"></span><br/>
 		<textarea id='log' name='log' readonly='readonly'></textarea><br/>
 		<input type='text' id='message' name='message' />
